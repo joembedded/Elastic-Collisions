@@ -32,10 +32,10 @@ Elasic collision keep the kinetic energy and  momentum.
 </body>
 <script>
 
-    const noOfBalls = 20
-    const minRad = 10
+    const noOfBalls = 40
+    const minRad = 20
     const maxRad = 80
-    const ballSpeed = 4
+    const ballSpeed = 5
     const elf = 1.0 // Elasticity  0.0:non elastic, 1.0:full elastic collision
 
     const canvas = document.querySelector('canvas')
@@ -94,7 +94,7 @@ Elasic collision keep the kinetic energy and  momentum.
     } // class Ball
 
     // Per step each ball against all others
-    function moveStep(anzs = 1) {
+    function moveStep() {
         for (let i = 0; i < ballsMax; i++) {
             const iball = balls[i]
             // First: model: delta-moves in finite steps
