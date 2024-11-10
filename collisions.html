@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html>
+
+<!-- 
+This is a small implementaton for elastic/non-elastic collisions 
+Elasic collision keep the kinetic energy and  momentum.
+(C)JoEmbedded.de
+-->
+
+<head>
+    <title>Collisions</title>
+    <style>
+        * {
+            /* Fullscreen Canvas */
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            color: white;
+            font-family: Arial, Helvetica, sans-serif;
+        }
+        canvas {
+            display: block;
+            background-color: rgb(0, 16, 0);
+        }
+    </style>
+</head>
+
+<body>
+    <canvas></canvas>
+</body>
+<script>
+
+    const noOfBalls = 20
+    const minRad = 10
+    const maxRad = 80
+    const ballSpeed = 4
+    const elf = 1.0 // Elasticity  0.0:non elastic, 1.0:full elastic collision
+
+    const canvas = document.querySelector('canvas')
+    const ctx = canvas.getContext('2d')
+
+    const balls = []    // holds all balls
+    let ballsMax = 0
+
+
+    function make_canvas_fullscreen() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+    }
+
+    class Ball {
+        constructor(minrad = 10, maxrad = 50, speed = 1) { 
+            const cmaxr = Math.min(canvas.width, canvas.height) * 0.5
+            if (maxrad > cmaxr) maxrad = cmaxr
+            this.radius = Math.random() * maxrad + minrad
+            this.mass = this.radius;    // Erstmal Masse=Radius
+            this.x = Math.random() * (canvas.width - this.radius * 2) + this.radius
+            this.y = Math.random() * (canvas.height - this.radius * 2) + this.radius
+            this.dx = Math.random() * 2 * speed - speed
+            this.dy = Math.random() * 2 * speed - speed
+            this.color = `rgb(${Math.random() * 235 + 20}, ${Math.random() * 235 + 20}, ${Math.random() * 235 + 20})`
+        }
+        draw() { 
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+            ctx.fillStyle = this.color;
+            ctx.fill();
+        }
+        vrotate(vsin, vcos) { // rotate V-Vector to normale (x)
+            const nx = this.dx * vcos + this.dy * vsin
+            const ny = -this.dx * vsin + this.dy * vcos;
+            this.dx = nx;
+            this.dy = ny;
+        }
+        vunrotate(vsin, vcos) { // V-Vector to world
+            const nx = this.dx * vcos - this.dy * vsin
+            const ny = this.dx * vsin + this.dy * vcos;
+            this.dx = nx;
+            this.dy = ny;
+        }
+        testHitAll() { // test for free space
+            for (let ui = 0; ui < ballsMax; ui++) {
+                const k = balls[ui];
+                const dx = k.x - this.x;
+                const dy = k.y - this.y
+                const dki = Math.sqrt(dx * dx + dy * dy);
+                const dkl = this.radius + k.radius
+                if (dki < dkl) return ui
+            }
+            return false
+        }
+    } // class Ball
+
+    // Per step each ball against all others
+    function moveStep(anzs = 1) {
+        for (let i = 0; i < ballsMax; i++) {
+            const iball = balls[i]
+            // First: model: delta-moves in finite steps
+            iball.x += iball.dx
+            iball.y += iball.dy
+
+            // Now compare this ball to the rest
+            for (let j = i + 1; j < ballsMax; j++) {
+                jball = balls[j]
+
+                // Collision if:
+                // - circles overlap
+                // - circles move towards each other
+                const dx = jball.x - iball.x;
+                const dy = jball.y - iball.y
+                const dki = Math.sqrt(dx * dx + dy * dy);
+                const dkl = iball.radius + jball.radius
+                if (dki < dkl) { // Ok, Overlap
+                    const ddx = dx + jball.dx - iball.dx;
+                    const ddy = dy + jball.dy - iball.dy
+                    const ddki = Math.sqrt(ddx * ddx + ddy * ddy);
+                    if (ddki < dki) {    // Ok, move towards
+                        // rotate hit direction to x axis,
+                        const hitArc = Math.atan2(dy, dx);
+                        const hitSin = Math.sin(hitArc)
+                        const hitCos = Math.cos(hitArc)
+                        jball.vrotate(hitSin, hitCos)
+                        iball.vrotate(hitSin, hitCos)
+                        // then calculate collision and rotate back
+                        const ts = ((iball.mass * iball.dx + jball.mass * jball.dx) - jball.mass * (iball.dx - jball.dx) * elf) / (iball.mass + jball.mass)
+                        const ks = ((iball.mass * iball.dx + jball.mass * jball.dx) - iball.mass * (jball.dx - iball.dx) * elf) / (iball.mass + jball.mass)
+                        iball.dx = ts;
+                        jball.dx = ks;
+                        jball.vunrotate(hitSin, hitCos)
+                        iball.vunrotate(hitSin, hitCos)
+                    }
+                }
+            }
+
+            // Finally: Border Collision?
+            if (iball.x + iball.radius > canvas.width && iball.dx > 0) iball.dx = - iball.dx
+            else if (iball.x - iball.radius < 0 && iball.dx < 0) iball.dx = - iball.dx
+            if (iball.y + iball.radius > canvas.height && iball.dy > 0) iball.dy = -iball.dy
+            else if (iball.y - iball.radius < 0 && iball.dy < 0) iball.dy = -iball.dy
+        }
+    }
+
+    function drawit() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height)
+        for (let i = 0; i < ballsMax; i++) {
+            const e = balls[i]
+            e.draw(i)
+        }
+    }
+
+    function animate() {
+        drawit()
+        moveStep()
+        requestAnimationFrame(animate)
+    }
+
+    function generate_balls() {
+        let cnt = 0
+        for (let i = 0; i < noOfBalls; i++) {
+            while (cnt++ < 100000) { // Saftey loop
+                const nb = new Ball(minRad, maxRad, ballSpeed)
+                const hx = nb.testHitAll()
+                if (hx === false) {
+                    balls.push(nb)
+                    ballsMax = balls.length
+                    break
+                }
+            }
+        }
+    }
+
+    function init() {
+        make_canvas_fullscreen();
+        window.addEventListener('resize', make_canvas_fullscreen)
+        generate_balls()
+        animate()
+    }
+    init()
+
+</script>
+
+</html>
