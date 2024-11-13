@@ -3,7 +3,8 @@
 
 <!-- 
 This is a small implementaton for elastic/non-elastic collisions 
-Elasic collision keep the kinetic energy and  momentum.
+Elasic collision keep the kinetic energy and momentum.
+
 (C)JoEmbedded.de
 -->
 
@@ -16,10 +17,12 @@ Elasic collision keep the kinetic energy and  momentum.
             padding: 0;
             box-sizing: border-box;
         }
+
         body {
             color: white;
             font-family: Arial, Helvetica, sans-serif;
         }
+
         canvas {
             display: block;
             background-color: rgb(0, 16, 0);
@@ -50,8 +53,9 @@ Elasic collision keep the kinetic energy and  momentum.
         canvas.height = window.innerHeight;
     }
 
+    var _ballIdcnt = 0
     class Ball {
-        constructor(minrad = 10, maxrad = 50, speed = 1) { 
+        constructor(minrad = 10, maxrad = 50, speed = 1) {
             const cmaxr = Math.min(canvas.width, canvas.height) * 0.5
             if (maxrad > cmaxr) maxrad = cmaxr
             this.radius = Math.random() * maxrad + minrad
@@ -60,13 +64,20 @@ Elasic collision keep the kinetic energy and  momentum.
             this.y = Math.random() * (canvas.height - this.radius * 2) + this.radius
             this.dx = Math.random() * 2 * speed - speed
             this.dy = Math.random() * 2 * speed - speed
-            this.color = `rgb(${Math.random() * 235 + 20}, ${Math.random() * 235 + 20}, ${Math.random() * 235 + 20})`
+            // Not Blax, not White
+            this.color = `rgb(${Math.random() * 225 + 20}, ${Math.random() * 225 + 20}, ${Math.random() * 225 + 20})`
+            this.id = ++_ballIdcnt
         }
-        draw() { 
+        draw() {
             ctx.beginPath();
             ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
             ctx.fillStyle = this.color;
             ctx.fill();
+            ctx.font = "2rem sans-serif"
+            ctx.textAlign = "center"
+            ctx.textBaseline = "middle"
+            ctx.fillStyle = "white"
+            ctx.fillText(this.id, this.x, this.y)
         }
         vrotate(vsin, vcos) { // rotate V-Vector to normale (x)
             const nx = this.dx * vcos + this.dy * vsin
@@ -93,7 +104,8 @@ Elasic collision keep the kinetic energy and  momentum.
         }
     } // class Ball
 
-    // Per step each ball against all others
+    // Per step each ball agains[t all others
+    let maxovld = 0 // Maximum overlap distance (for diagnostics)
     function moveStep() {
         for (let i = 0; i < ballsMax; i++) {
             const iball = balls[i]
@@ -110,15 +122,21 @@ Elasic collision keep the kinetic energy and  momentum.
                 // - circles move towards each other
                 const dx = jball.x - iball.x;
                 const dy = jball.y - iball.y
-                const dki = Math.sqrt(dx * dx + dy * dy);
-                const dkl = iball.radius + jball.radius
-                if (dki < dkl) { // Ok, Overlap
+                const dki = Math.sqrt(dx * dx + dy * dy)
+                const ovld = iball.radius + jball.radius - dki
+                if (ovld > 0) { // (Overlap-) Distance > 0: Overlap
                     const ddx = dx + jball.dx - iball.dx;
                     const ddy = dy + jball.dy - iball.dy
                     const ddki = Math.sqrt(ddx * ddx + ddy * ddy);
-                    if (ddki < dki) {    // Ok, move towards
+                    if (ddki < dki) {    // Ok, Balls move towards
+                        if (ovld > maxovld) {
+                            // Model ok for kinetic energy and momentum, but direction slightly less 
+                            // precise if ovld >0. Just recored it..
+                            maxovld = ovld > 0
+                            console.log(`Max. Overlap Balls[${iball.id}]/[${jball.id}]: ${maxovld}`)
+                        }
                         // rotate hit direction to x axis,
-                        const hitArc = Math.atan2(dy, dx);
+                        const hitArc = Math.atan2(dy, dx)
                         const hitSin = Math.sin(hitArc)
                         const hitCos = Math.cos(hitArc)
                         jball.vrotate(hitSin, hitCos)
